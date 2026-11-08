@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyroIsolation: Solid-State Pyro-Fuse High-Current Arc Quencher</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Bulletproof MathJax v3 Setup -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05070d;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .formula-box {
+            background-color: #020617;
+            padding: 0.85rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #1e293b;
+            text-align: center;
+            color: #38bdf8;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#05070d] text-slate-200">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-gray-800 bg-[#080c14]/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-lg text-white tracking-tight">PyroIsolation</span>
+                        <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">NASA TRL-4+</span>
+                        <span class="text-xs font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800">1000V DC Lunar Bus</span>
+                    </div>
+                    <p class="text-xs text-gray-400 hidden sm:block">Solid-State Pyro-Fuse High-Current Arc Quencher & Dynamic $(E, G)$ Observer</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <div class="flex items-center space-x-1 sm:space-x-2 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+                <button id="tabBtnSim" onclick="switchTab('sim')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-cyan-600 text-white shadow-lg shadow-cyan-950">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Live Telemetry & Sim</span>
+                    <span class="md:hidden">Sim</span>
+                </button>
+                <button id="tabBtnPhysics" onclick="switchTab('physics')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white">
+                    <i data-lucide="atom" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Physics & Model</span>
+                    <span class="md:hidden">Physics</span>
+                </button>
+                <button id="tabBtnProposal" onclick="switchTab('proposal')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white">
+                    <i data-lucide="file-check" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">NASA SBIR Proposal</span>
+                    <span class="md:hidden">SBIR</span>
+                </button>
+                <button id="tabBtnARR" onclick="switchTab('arr')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white">
+                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Commercial ARR ($214M)</span>
+                    <span class="md:hidden">ARR</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8">
+
+        <!-- ========================================================================= -->
+        <!-- TAB 1: LIVE SIMULATION & TELEMETRY HUD                                     -->
+        <!-- ========================================================================= -->
+        <div id="viewSim" class="space-y-6">
+            
+            <!-- Top Alert Status Banner -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wider font-mono">Bus Potential</div>
+                        <div class="text-2xl font-bold font-mono text-white mt-0.5" id="metricVoltage">1000.0 <span class="text-xs font-normal text-gray-400">V DC</span></div>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i data-lucide="zap" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wider font-mono">Bus Fault Current</div>
+                        <div class="text-2xl font-bold font-mono text-rose-400 mt-0.5" id="metricCurrent">0.00 <span class="text-xs font-normal text-gray-400">kA</span></div>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                        <i data-lucide="flame" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wider font-mono">Conductance ($G$)</div>
+                        <div class="text-2xl font-bold font-mono text-amber-300 mt-0.5" id="metricConductance">0.00 <span class="text-xs font-normal text-gray-400">S</span></div>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <i data-lucide="git-commit" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wider font-mono">Arc Quench Status</div>
+                        <div class="text-sm font-bold font-mono mt-1 flex items-center space-x-1.5" id="statusBadgeContainer">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-emerald-400 tracking-wide" id="statusBadgeText">STANDBY (BUS CLOSED)</span>
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400" id="statusIcon">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Canvas & Controls Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Interactive Physical Disconnector Chamber Canvas -->
+                <div class="lg:col-span-8 bg-gray-900/50 border border-gray-800 rounded-2xl p-4 flex flex-col relative overflow-hidden backdrop-blur">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+                            <h3 class="font-semibold text-sm text-gray-200">Lunar Habitat 1000V DC Solid-State Pyro-Fuse Chamber</h3>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs font-mono text-gray-400">
+                            <span class="flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                                <span>OPTICAL SENSOR ACTIVE</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Canvas -->
+                    <div class="relative w-full h-72 sm:h-80 bg-[#03050a] rounded-xl border border-gray-800/80 overflow-hidden shadow-inner">
+                        <canvas id="fuseCanvas" class="w-full h-full block"></canvas>
+                        
+                        <!-- Floating Chamber Labels Overlay -->
+                        <div class="absolute bottom-2 left-3 text-[11px] font-mono text-gray-500 pointer-events-none">
+                            HV Vacuum Chamber (Lunar Ambient: $10^{-9}\,\text{Torr}$) | Piston Chopper Gap: <span id="gapDisplay" class="text-cyan-400">0.0 mm</span>
+                        </div>
+                        <div id="puffIndicator" class="absolute top-3 right-3 text-[11px] font-mono px-2 py-1 rounded bg-rose-500/20 border border-rose-500 text-rose-300 hidden">
+                            AUXILIARY DIELECTRIC PUFF INJECTED ($SF_6/N_2$ at 12 MPa)
+                        </div>
+                    </div>
+
+                    <!-- Micro-Actions & Quick Controls Below Canvas -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+                        <button onclick="triggerFault(false)" class="flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-medium text-xs shadow-md transition">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                            <span>Ignite Pyro Only</span>
+                        </button>
+                        <button onclick="triggerFault(true)" class="flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs shadow-md shadow-cyan-950 transition">
+                            <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                            <span>Pyro + Closed-Loop Puff</span>
+                        </button>
+                        <button onclick="injectPlasmaBlowby()" class="flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-rose-700 to-red-800 hover:from-rose-600 hover:to-red-700 text-white font-medium text-xs shadow-md transition">
+                            <i data-lucide="flame" class="w-4 h-4"></i>
+                            <span>Force Flashover Failure</span>
+                        </button>
+                        <button onclick="resetSystemState()" class="flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium text-xs transition border border-gray-700">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            <span>Reset Busbar</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Simulation Dynamic Settings & Closed-Loop Parameters -->
+                <div class="lg:col-span-4 bg-gray-900/50 border border-gray-800 rounded-2xl p-5 flex flex-col justify-between backdrop-blur">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-4">
+                            <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+                            <h3 class="font-semibold text-sm text-gray-200">Arc Extinguisher Controls</h3>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs font-mono mb-1">
+                                    <span class="text-gray-400">Short-Circuit Peak Current ($I_{sc}$)</span>
+                                    <span class="text-rose-400 font-bold" id="valCurrentSlider">12.5 kA</span>
+                                </div>
+                                <input type="range" id="sliderCurrent" min="4" max="25" step="0.5" value="12.5" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-rose-500" oninput="updateControls()">
+                                <div class="text-[10px] text-gray-500 mt-0.5">Lunar Habitat primary microgrid bus capacity</div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-mono mb-1">
+                                    <span class="text-gray-400">Piston Chopping Velocity ($v_p$)</span>
+                                    <span class="text-cyan-400 font-bold" id="valVelocitySlider">42 m/s</span>
+                                </div>
+                                <input type="range" id="sliderVelocity" min="15" max="80" step="1" value="42" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" oninput="updateControls()">
+                                <div class="text-[10px] text-gray-500 mt-0.5">Driven by nitrocellulose pyrotechnic charge</div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-mono mb-1">
+                                    <span class="text-gray-400">Conductance Arrest Trigger ($dG/dt$)</span>
+                                    <span class="text-amber-400 font-bold" id="valThresholdSlider">-0.08 S/ms</span>
+                                </div>
+                                <input type="range" id="sliderThreshold" min="-0.30" max="-0.02" step="0.01" value="-0.08" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-500" oninput="updateControls()">
+                                <div class="text-[10px] text-gray-500 mt-0.5">Inflection point activating micro-pyro gas valve</div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-mono mb-1">
+                                    <span class="text-gray-400">Aux Gas Puff Pressure ($P_{\text{puff}}$)</span>
+                                    <span class="text-purple-400 font-bold" id="valPressureSlider">12.0 MPa</span>
+                                </div>
+                                <input type="range" id="sliderPressure" min="3" max="25" step="0.5" value="12.0" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500" oninput="updateControls()">
+                                <div class="text-[10px] text-gray-500 mt-0.5">High-dielectric recovery velocity across gap</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Autonomous Observer Readout -->
+                    <div class="mt-4 p-3 bg-gray-950/80 rounded-xl border border-gray-800">
+                        <div class="text-[11px] font-mono text-gray-400 flex items-center justify-between mb-1.5">
+                            <span>AUTONOMOUS OBSERVER</span>
+                            <span class="text-cyan-400">LOOP: 100 kHz</span>
+                        </div>
+                        <div class="text-xs text-gray-300 leading-relaxed font-mono" id="observerDiagnostic">
+                            System state nominal. Low impedance metal contact. Conductance observer initialized.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-Time Telemetry & Phase Space Diagnostic Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- PRIMARY PHASE SPACE: Conductance G vs Energy E -->
+                <div class="lg:col-span-6 bg-gray-900/50 border border-gray-800 rounded-2xl p-5 backdrop-blur">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="crosshair" class="w-4 h-4 text-cyan-400"></i>
+                            <h4 class="font-semibold text-sm text-gray-200">Phase-Space: Energy ($E$) vs Conductance ($G$)</h4>
+                        </div>
+                        <span class="text-xs font-mono text-cyan-400">PRIMARY DIAGNOSTIC</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-3">
+                        Nominal trajectory decays sharply to $(0,0)$. Stalling along $G$ triggers immediate dielectric quench injection.
+                    </p>
+                    <div class="h-64 relative">
+                        <canvas id="chartPhaseSpace"></canvas>
+                    </div>
+                </div>
+
+                <!-- Secondary Chart 1: Time Series Voltage & Current -->
+                <div class="lg:col-span-3 bg-gray-900/50 border border-gray-800 rounded-2xl p-5 backdrop-blur">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="line-chart" class="w-4 h-4 text-rose-400"></i>
+                            <h4 class="font-semibold text-sm text-gray-200">Transient Current ($i$) & Gap ($x$)</h4>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-3">Mechanical piston displacement vs arc current.</p>
+                    <div class="h-64 relative">
+                        <canvas id="chartTransient"></canvas>
+                    </div>
+                </div>
+
+                <!-- Secondary Chart 2: Time Series Arc Conductance & dG/dt -->
+                <div class="lg:col-span-3 bg-gray-900/50 border border-gray-800 rounded-2xl p-5 backdrop-blur">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="gauge" class="w-4 h-4 text-amber-400"></i>
+                            <h4 class="font-semibold text-sm text-gray-200">Conductance Decay Derivative</h4>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-3">Rate of decay $\frac{dG}{dt}$ flagging plasma stall.</p>
+                    <div class="h-64 relative">
+                        <canvas id="chartConductance"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 2: CORE PHYSICS & MATHEMATICAL MODEL                                  -->
+        <!-- ========================================================================= -->
+        <div id="viewPhysics" class="hidden space-y-6">
+            <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 backdrop-blur">
+                <div class="flex items-center space-x-3 mb-2">
+                    <div class="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                        <i data-lucide="atom" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Non-Equilibrium Arc Plasma & Pyro-Chopper Fluid Dynamics</h2>
+                        <p class="text-xs text-gray-400 font-mono">Mathematical formulations for high-current DC interruption in vacuum-tight lunar habitats</p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+                    In high-voltage DC distribution (1000V DC lunar microgrids), zero-current crossings do not exist naturally. Interruption requires mechanical gap generation combined with forced energy extraction where arc dissipation exceeds electrical energy input ($P_{\text{arc}} > V_{\text{bus}} I$). The PyroIsolation system models this phase transition in real-time.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Card 1: Governing Arc Plasma & Energy Balance -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-cyan-400 mb-2">
+                        <i data-lucide="flame" class="w-4 h-4"></i>
+                        <h3 class="font-semibold text-sm text-gray-100">1. Modified Cassie-Mayr Dynamic Arc Model</h3>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        The arc conductance $G(t)$ in a high-velocity mechanical shearing gap follows a combined Cassie-Mayr energy dissipation equation governed by thermodynamic cooling time constants $\theta$ and arc loss power $P_0$:
+                    </p>
+                    
+                    <div class="formula-box">
+                        $$\frac{1}{G}\frac{dG}{dt} = \frac{1}{\theta(v_p, P_{\text{puff}})} \left( \frac{u_{\text{arc}} \cdot i}{P_0(t)} - 1 \right)$$
+                    </div>
+
+                    <p class="text-xs text-gray-400 leading-relaxed mt-2">
+                        As the chemical combustion energy $E_{\text{pyro}}$ propels the cutter blade at velocity $v_p(t)$, the mechanical separation $x(t) = \int v_p dt$ creates a rapidly lengthening column. If the local gas thermal conduction and convection cannot overcome the joule heating $u_{\text{arc}} \cdot i$, then $\frac{dG}{dt} \to 0$ or becomes positive, triggering flashover.
+                    </p>
+                </div>
+
+                <!-- Card 2: Mechanical Chopping & Energy Partition -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-purple-400 mb-2">
+                        <i data-lucide="hammer" class="w-4 h-4"></i>
+                        <h3 class="font-semibold text-sm text-gray-100">2. Piston Kinematics & Chemical Energy Partition</h3>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        The pyrotechnic charge burns rapidly, converting chemical explosive energy $E_{\text{chem}}$ into high-pressure propellant gases that drive the hardened ceramic cutter piston:
+                    </p>
+                    
+                    <div class="formula-box">
+                        $$E_{\text{total}} = \int_0^t F_{\text{prop}} \, dx = \frac{1}{2} m_p v_p^2 + W_{\text{shear}} + E_{\text{plasma}} + \Delta E_{\text{thermal}}$$
+                    </div>
+
+                    <p class="text-xs text-gray-400 leading-relaxed mt-2">
+                        Where $m_p$ is piston mass, $W_{\text{shear}} = \int \tau_u A_{\text{bus}} dx$ is work expended shearing the copper busbar, and $E_{\text{plasma}}$ is the trapped metallic vapor thermal ionization energy. Residual ionized gas creates plasma blow-by around mechanical sealing rings.
+                    </p>
+                </div>
+
+                <!-- Card 3: Dynamic State Observer & (E, G) Inversion -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-amber-400 mb-2">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                        <h3 class="font-semibold text-sm text-gray-100">3. Real-Time $(E, G)$ Observer & Arrest Detection</h3>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Dual optical emission spectrometry (measuring Cu-I vapor line intensity at 521.8 nm) combined with Rogowski coil current derivative $\frac{di}{dt}$ calculates instantaneous arc energy $E(t)$ and conductance $G(t)$:
+                    </p>
+                    
+                    <div class="formula-box">
+                        $$E(t) = \int_0^t \left( V_{\text{bus}} - L_{\text{bus}} \frac{di}{dt} \right) \cdot i(\tau) \, d\tau, \quad G(t) = \frac{i(t)}{u_{\text{arc}}(t)}$$
+                    </div>
+
+                    <p class="text-xs text-gray-400 leading-relaxed mt-2">
+                        The software tracks the trajectory vector $\vec{\Gamma} = (E, G)$ in real-time. If $\left| \frac{dG}{dt} \right| < \epsilon_{\text{stall}}$ while $G > G_{\text{critical}}$, the controller detects an incomplete quench arrest and initiates auxiliary gas injection within $25\,\mu\text{s}$.
+                    </p>
+                </div>
+
+                <!-- Card 4: Dielectric Gas Puffing & Arc Quenching -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-emerald-400 mb-2">
+                        <i data-lucide="wind" class="w-4 h-4"></i>
+                        <h3 class="font-semibold text-sm text-gray-100">4. Supersonic Dielectric Injection Recovery</h3>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        The auxiliary puff injects a high-dielectric mixture ($SF_6 / N_2$ or compressed dry Fluoroketone) directly into the shearing knife gap, drastically raising the dielectric breakdown voltage $V_{\text{bd}}$ via Paschen's generalized law:
+                    </p>
+                    
+                    <div class="formula-box">
+                        $$V_{\text{bd}} = \frac{B \cdot P \cdot d}{\ln(A \cdot P \cdot d) - \ln\left[ \ln\left(1 + \frac{1}{\gamma_{\text{se}}}\right) \right]}$$
+                    </div>
+
+                    <p class="text-xs text-gray-400 leading-relaxed mt-2">
+                        The turbulent supersonic gas flush sweeps out metal vapor charge carriers, collapsing the arc time constant $\theta \to 0.4\,\mu\text{s}$ and permanently driving conductance $G \to 0\,\text{S}$ before thermal restrike occurs.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 3: NASA SBIR/STTR PROPOSAL & HARDWARE TRANSITION                     -->
+        <!-- ========================================================================= -->
+        <div id="viewProposal" class="hidden space-y-6">
+            <!-- Proposal Header Card -->
+            <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 backdrop-blur">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2.5 py-0.5 rounded bg-blue-950 border border-blue-800 text-blue-400 text-xs font-mono font-semibold">NASA SBIR/STTR 2026</span>
+                            <span class="px-2.5 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 text-xs font-mono font-semibold">Focus Area: TX03.02</span>
+                        </div>
+                        <h2 class="text-xl font-bold text-white mt-2">Topic TX03.02: Fault-Tolerant High-Voltage Distribution for Lunar Habitats & Surface Power</h2>
+                        <p class="text-xs text-gray-400 mt-1 font-mono">Phase I Contract Value: $225,000 | 6-Month Period of Performance</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold font-mono text-cyan-400">$225,000</div>
+                        <div class="text-xs text-gray-400">Firm-Fixed Price Phase I</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- University STTR Partner Breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gradient-to-br from-gray-900/90 to-blue-950/30 border border-blue-800/50 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-cyan-400 mb-2">
+                        <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                        <h3 class="font-semibold text-sm text-white">University Partner Allocation</h3>
+                    </div>
+                    <div class="text-2xl font-bold font-mono text-white mt-2">30.0% <span class="text-sm font-normal text-gray-400">($67,500)</span></div>
+                    <p class="text-xs text-gray-300 mt-2 leading-relaxed">
+                        Subcontracted to <strong class="text-cyan-300">University of Central Florida (UCF) - Center for Advanced Turbomachinery and Energy Research (CATER)</strong>.
+                    </p>
+                    <div class="mt-3 text-[11px] font-mono text-gray-400 bg-gray-950/60 p-2 rounded border border-gray-800">
+                        Lead PI: Dr. Arc-Plasma Dynamics Group. Focus: High-speed vacuum schlieren imaging and copper vapor spectroscopy.
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-amber-400 mb-2">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                        <h3 class="font-semibold text-sm text-white">Period of Performance</h3>
+                    </div>
+                    <div class="text-2xl font-bold font-mono text-white mt-2">6 Months <span class="text-sm font-normal text-gray-400">(TRL 3 $\to$ 5)</span></div>
+                    <p class="text-xs text-gray-400 mt-2 leading-relaxed">
+                        From analytical arc-chopping verification to benchtop vacuum-chamber validation on a representative 1000V DC / 15kA lunar power bus.
+                    </p>
+                    <div class="mt-3 text-[11px] font-mono text-gray-400 bg-gray-950/60 p-2 rounded border border-gray-800">
+                        Deliverable: Validated closed-loop control algorithm and flight-weight prototype CAD package.
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-emerald-400 mb-2">
+                        <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                        <h3 class="font-semibold text-sm text-white">Phase II Transition Plan</h3>
+                    </div>
+                    <div class="text-2xl font-bold font-mono text-emerald-400 mt-2">$850k – $1.2M</div>
+                    <p class="text-xs text-gray-400 mt-2 leading-relaxed">
+                        Follow-on 24-month transition targeting thermal-vacuum chamber qualification at NASA Glenn Research Center (GRC) and Marshall Space Flight Center (MSFC).
+                    </p>
+                    <div class="mt-3 text-[11px] font-mono text-gray-400 bg-gray-950/60 p-2 rounded border border-gray-800">
+                        Target System: Fission Surface Power (FSP) & Artemis Base Camp microgrid isolation.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6-Month Work Breakdown Schedule -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <h3 class="font-semibold text-sm text-white mb-4 flex items-center space-x-2">
+                    <i data-lucide="calendar" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Phase I Technical Milestones (Months 1 – 6)</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-950/70 border border-gray-800 p-4 rounded-lg">
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">M1 – M2</div>
+                        <h4 class="text-xs font-semibold text-gray-200">Kinetic & Arc Modeling</h4>
+                        <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Develop coupled Cassie-Mayr finite-difference code calibrated against 1000V DC lunar bus geometries. Define $(E, G)$ boundary criteria.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-950/70 border border-gray-800 p-4 rounded-lg">
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">M3</div>
+                        <h4 class="text-xs font-semibold text-gray-200">State Observer Inversion</h4>
+                        <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Synthesize real-time $100\,\text{kHz}$ optical and $\frac{di}{dt}$ estimator firmware on radiation-hardened FPGA emulation board.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-950/70 border border-gray-800 p-4 rounded-lg">
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">M4 – M5</div>
+                        <h4 class="text-xs font-semibold text-gray-200">UCF Vacuum Chamber Tests</h4>
+                        <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Experimental validation at UCF CATER facilities. Inject 12 kA pulses across copper busbars under $10^{-6}\,\text{Torr}$ vacuum conditions.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-950/70 border border-gray-800 p-4 rounded-lg border-cyan-800/40">
+                        <div class="text-xs font-mono text-emerald-400 font-bold mb-1">M6</div>
+                        <h4 class="text-xs font-semibold text-gray-200">Phase II Tech Package</h4>
+                        <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                            Complete Phase II transition architecture, high-pressure gas puff nozzle geometry, and deliver finalized TRL-5 hardware spec to NASA.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 4: COMMERCIAL & NATIONWIDE ARR BREAKDOWN ($214M+)                      -->
+        <!-- ========================================================================= -->
+        <div id="viewARR" class="hidden space-y-6">
+            <!-- Executive ARR Summary -->
+            <div class="bg-gradient-to-r from-gray-900 via-gray-900 to-cyan-950/40 border border-gray-800 rounded-2xl p-6 backdrop-blur">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400 text-xs font-mono font-semibold">Dual-Use Commercialization</span>
+                        <h2 class="text-2xl font-bold text-white mt-2">Civil & Commercial Nationwide ARR: <span class="text-cyan-400">$214.2M</span></h2>
+                        <p class="text-sm text-gray-300 mt-1 max-w-2xl">
+                            <strong>Executive Value Proposition:</strong> Replacing passive sacrificial fuses with autonomous $(E, G)$ state-observer pyro-quenchers eliminates catastrophic DC arc-flash downtime and equipment fires across megawatt-class civil infrastructure.
+                        </p>
+                    </div>
+                    <div class="p-4 bg-gray-950 rounded-xl border border-gray-800 text-center lg:text-right">
+                        <div class="text-xs font-mono text-gray-400 uppercase">Enterprise Software Valuation (10x ARR)</div>
+                        <div class="text-3xl font-bold font-mono text-emerald-400 mt-1">$2.14 Billion</div>
+                        <div class="text-[11px] text-gray-500 mt-0.5">Based on deep-tech embedded control multiples</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commercial Verticals ARR Distribution Table -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-gray-800">
+                    <h3 class="font-semibold text-sm text-white">Target Commercial Markets & Mature SaaS ARR Breakdown</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-gray-950 text-gray-400 uppercase border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">Commercial Vertical</th>
+                                <th class="p-3">Primary Equipment Application</th>
+                                <th class="p-3">Pricing Metric / Runtime SaaS</th>
+                                <th class="p-3">US Addressable Base</th>
+                                <th class="p-3 text-right">Mature Annual ARR</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800 text-gray-300">
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">1. Utility Solar & BESS Storage</td>
+                                <td class="p-3">1500V DC utility solar string combiners & battery racks</td>
+                                <td class="p-3">$420 / battery container / yr</td>
+                                <td class="p-3">142,000 Utility BESS Units</td>
+                                <td class="p-3 text-right font-bold text-white">$59.6M</td>
+                            </tr>
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">2. Hyperscale AI Data Centers</td>
+                                <td class="p-3">800V DC server rack power distribution buses (NVIDIA NVL72)</td>
+                                <td class="p-3">$1,200 / DC data bus feed / yr</td>
+                                <td class="p-3">38,500 Hyperscale Feeds</td>
+                                <td class="p-3 text-right font-bold text-white">$46.2M</td>
+                            </tr>
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">3. Electric Heavy Haul Mining</td>
+                                <td class="p-3">Autonomous 2500V DC trolley assist and battery trucks</td>
+                                <td class="p-3">$3,800 / haul truck fleet unit / yr</td>
+                                <td class="p-3">9,800 Mining Vehicles</td>
+                                <td class="p-3 text-right font-bold text-white">$37.2M</td>
+                            </tr>
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">4. Commercial Space & Orbital Stations</td>
+                                <td class="p-3">Axiom, Orbital Reef, & lunar lander power backbones</td>
+                                <td class="p-3">$18,500 / critical bus channel / yr</td>
+                                <td class="p-3">1,450 Space Channels</td>
+                                <td class="p-3 text-right font-bold text-white">$26.8M</td>
+                            </tr>
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">5. Electric Maritime & Ferries</td>
+                                <td class="p-3">Megawatt-scale fast-charging shore connections & DC vessels</td>
+                                <td class="p-3">$4,500 / fast-charge dock / yr</td>
+                                <td class="p-3">5,200 Marine Ports</td>
+                                <td class="p-3 text-right font-bold text-white">$23.4M</td>
+                            </tr>
+                            <tr class="hover:bg-gray-800/30">
+                                <td class="p-3 font-semibold text-cyan-300">6. High-Speed DC Rail Traction</td>
+                                <td class="p-3">Substation solid-state fault-clearing bypass disconnectors</td>
+                                <td class="p-3">$2,100 / substation unit / yr</td>
+                                <td class="p-3">10,000 Traction Substations</td>
+                                <td class="p-3 text-right font-bold text-white">$21.0M</td>
+                            </tr>
+                            <tr class="bg-gray-950 font-bold">
+                                <td class="p-3 text-emerald-400" colspan="4">Total Nationwide Civil ARR Target</td>
+                                <td class="p-3 text-right text-emerald-400 text-sm">$214.2M</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Deep-Dive Industry Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Industry 1: Utility Solar & BESS -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-cyan-400 mb-2">
+                        <i data-lucide="sun" class="w-5 h-5"></i>
+                        <h4 class="font-bold text-sm text-white">Utility Solar & Battery Energy Storage Systems (BESS)</h4>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <p class="text-gray-300">
+                            <strong class="text-cyan-300">Physics in 1 Sentence:</strong> In high-capacity Li-ion battery arrays, low internal resistance sustains high-current plasma columns indefinitely upon fuse rupture without rapid non-equilibrium energy extraction.
+                        </p>
+                        <p class="text-gray-400">
+                            <strong class="text-amber-300">Why Others Missed This (Plain English for Executives):</strong> Incumbents rely on passive sand-filled mechanical fuses that melt unpredictably; when 1500V DC arcs sustain through the sand, the entire container burns to the ground. Our real-time $(E, G)$ observer detects the arc stall and snuffs it in microseconds.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Industry 2: AI Data Centers -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-purple-400 mb-2">
+                        <i data-lucide="server" class="w-5 h-5"></i>
+                        <h4 class="font-bold text-sm text-white">Hyperscale AI Data Centers (800V DC Rack Distribution)</h4>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <p class="text-gray-300">
+                            <strong class="text-purple-300">Physics in 1 Sentence:</strong> Extreme inductive energy $E = \frac{1}{2} L i^2$ stored in compact megawatt server busbars causes copper ionization across separating contacts during load rejection.
+                        </p>
+                        <p class="text-gray-400">
+                            <strong class="text-amber-300">Why Others Missed This (Plain English for Executives):</strong> Operators rely on giant electromechanical breakers that take 40 milliseconds to trip—long enough for an arc flash to blast through neighboring rack electronics. PyroIsolation cuts the conductor and quenches plasma in under 1 millisecond.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Industry 3: Autonomous Electric Mining -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-amber-400 mb-2">
+                        <i data-lucide="truck" class="w-5 h-5"></i>
+                        <h4 class="font-bold text-sm text-white">Autonomous Heavy Haul Mining Trucks</h4>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <p class="text-gray-300">
+                            <strong class="text-amber-300">Physics in 1 Sentence:</strong> Severe vibration and abrasive mineral dust degrade isolation barriers, precipitating high-energy ground flashovers along overhead 2500V DC pantograph systems.
+                        </p>
+                        <p class="text-gray-400">
+                            <strong class="text-amber-300">Why Others Missed This (Plain English for Executives):</strong> Mines treat truck fires as routine operational write-offs, replacing expensive pyrotechnic charges without knowing if the disconnect successfully cleared or blew out its seals. Our software ensures guaranteed zero-blowby clearing.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Industry 4: Commercial Space Stations -->
+                <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                    <div class="flex items-center space-x-2 text-emerald-400 mb-2">
+                        <i data-lucide="orbit" class="w-5 h-5"></i>
+                        <h4 class="font-bold text-sm text-white">Commercial Space Stations & Artemis Infrastructure</h4>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <p class="text-gray-300">
+                            <strong class="text-emerald-300">Physics in 1 Sentence:</strong> In ultra-high vacuum environments, molten metal droplets ejected during pyrotechnic chopping maintain ionized conductive paths over centimeters for hundreds of milliseconds.
+                        </p>
+                        <p class="text-gray-400">
+                            <strong class="text-amber-300">Why Others Missed This (Plain English for Executives):</strong> Standard space-qualified pyro-switches are designed for one-way single-shot pyros without dynamic state verification, leading to catastrophic spacecraft loss if plasma bypasses the seal. PyroIsolation adds microsecond dielectric recovery verification.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Call to Action Banner -->
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-6 text-center">
+                <h3 class="text-base font-semibold text-white">Partner with the PyroIsolation Team</h3>
+                <p class="text-xs text-gray-400 mt-1 max-w-xl mx-auto">
+                    Phase I & Phase II aerospace engineering, direct OEM licensing, or flight hardware transition inquiries:
+                </p>
+                <div class="mt-4">
+                    <a href="mailto:support@rfwavecode.com" class="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs shadow-lg shadow-cyan-950 transition">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <span>Contact Technology Directorate: support@rfwavecode.com</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Global Application State & Physics Engine -->
+    <script>
+        // ==========================================
+        // 1. Tab Navigation & View Management
+        // ==========================================
+        const tabMapping = {
+            'sim': { viewId: 'viewSim', btnId: 'tabBtnSim' },
+            'physics': { viewId: 'viewPhysics', btnId: 'tabBtnPhysics' },
+            'proposal': { viewId: 'viewProposal', btnId: 'tabBtnProposal' },
+            'arr': { viewId: 'viewARR', btnId: 'tabBtnARR' }
+        };
+
+        function switchTab(targetTab) {
+            Object.keys(tabMapping).forEach(tab => {
+                const config = tabMapping[tab];
+                const viewEl = document.getElementById(config.viewId);
+                const btnEl = document.getElementById(config.btnId);
+
+                if (tab === targetTab) {
+                    viewEl.classList.remove('hidden');
+                    btnEl.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-cyan-600 text-white shadow-lg shadow-cyan-950";
+                } else {
+                    viewEl.classList.add('hidden');
+                    btnEl.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white";
+                }
+            });
+
+            // Refresh math typesetting on tab load
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+
+            // If switching back to simulation, resize canvas
+            if (targetTab === 'sim') {
+                setTimeout(() => {
+                    resizeCanvas();
+                }, 50);
+            }
+        }
+
+        // ==========================================
+        // 2. Simulation State & Physics Parameters
+        // ==========================================
+        const state = {
+            busVoltage: 1000.0,      // Volts DC
+            maxFaultCurrent: 12.5,   // kA
+            chopperVelocity: 42.0,   // m/s
+            dGdtThreshold: -0.08,    // S/ms
+            puffPressure: 12.0,      // MPa
+            
+            // Dynamic transient variables
+            isFaultActive: false,
+            closedLoopPuffEnabled: true,
+            forceFlashover: false,
+            simTimeMs: 0.0,
+            
+            // Physical state
+            currentKA: 0.0,
+            arcEnergyJoules: 0.0,
+            conductanceS: 0.0,
+            dGdt: 0.0,
+            pistonPosMm: 0.0,
+            maxGapMm: 35.0,
+            arcExtinguished: false,
+            puffFired: false,
+            puffTimeMs: 0.0,
+            flashoverOccurred: false,
+            
+            // Visual particles
+            plasmaParticles: [],
+            puffParticles: [],
+            sparks: []
+        };
+
+        // Charts references
+        let chartPhaseSpace = null;
+        let chartTransient = null;
+        let chartConductance = null;
+        let chartUpdateCounter = 0;
+
+        // Trace Data for Phase Space Chart
+        const phaseSpaceHistory = [];
+        const transientTimeData = [];
+        const currentData = [];
+        const gapData = [];
+        const conductanceData = [];
+        const dGdtData = [];
+
+        // Canvas Setup
+        const canvas = document.getElementById('fuseCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width || 600;
+            const h = rect.height || 280;
+            
+            canvas.width = w * window.devicePixelRatio;
+            canvas.height = h * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawHardware(w, h);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // ==========================================
+        // 3. User Controls & Inputs
+        // ==========================================
+        function updateControls() {
+            state.maxFaultCurrent = parseFloat(document.getElementById('sliderCurrent').value);
+            state.chopperVelocity = parseFloat(document.getElementById('sliderVelocity').value);
+            state.dGdtThreshold = parseFloat(document.getElementById('sliderThreshold').value);
+            state.puffPressure = parseFloat(document.getElementById('sliderPressure').value);
+
+            document.getElementById('valCurrentSlider').innerText = state.maxFaultCurrent.toFixed(1) + ' kA';
+            document.getElementById('valVelocitySlider').innerText = state.chopperVelocity.toFixed(0) + ' m/s';
+            document.getElementById('valThresholdSlider').innerText = state.dGdtThreshold.toFixed(2) + ' S/ms';
+            document.getElementById('valPressureSlider').innerText = state.puffPressure.toFixed(1) + ' MPa';
+        }
+
+        function triggerFault(enableClosedLoop) {
+            resetSystemState();
+            state.isFaultActive = true;
+            state.closedLoopPuffEnabled = enableClosedLoop;
+            state.forceFlashover = false;
+            state.currentKA = state.maxFaultCurrent;
+            state.conductanceS = (state.currentKA * 1000) / 45.0; // Initial arc voltage ~45V
+            
+            updateStatusBadge(
+                'ARC IGNITED - SEVERING', 
+                'text-rose-400', 
+                'bg-rose-500', 
+                'flame', 
+                'border-rose-500/20'
+            );
+            
+            document.getElementById('observerDiagnostic').innerText = 
+                `High di/dt short-circuit detected (${state.maxFaultCurrent} kA). Pyro combustion initiated. Piston deploying.`;
+        }
+
+        function injectPlasmaBlowby() {
+            resetSystemState();
+            state.isFaultActive = true;
+            state.closedLoopPuffEnabled = false;
+            state.forceFlashover = true;
+            state.currentKA = state.maxFaultCurrent * 1.25;
+            state.conductanceS = 250.0;
+            
+            updateStatusBadge(
+                'CRITICAL FLASHOVER', 
+                'text-red-500 animate-pulse', 
+                'bg-red-500 animate-ping', 
+                'alert-octagon', 
+                'border-red-500/40'
+            );
+            
+            document.getElementById('observerDiagnostic').innerText = 
+                `CRITICAL: Plasma blow-by detected across mechanical seals! Uncontrolled 1000V DC flashover established across chopper gap.`;
+        }
+
+        function resetSystemState() {
+            state.isFaultActive = false;
+            state.simTimeMs = 0.0;
+            state.currentKA = 0.0;
+            state.arcEnergyJoules = 0.0;
+            state.conductanceS = 0.0;
+            state.dGdt = 0.0;
+            state.pistonPosMm = 0.0;
+            state.arcExtinguished = false;
+            state.puffFired = false;
+            state.puffTimeMs = 0.0;
+            state.forceFlashover = false;
+            state.flashoverOccurred = false;
+            
+            state.plasmaParticles = [];
+            state.puffParticles = [];
+            state.sparks = [];
+
+            // Clear Charts
+            phaseSpaceHistory.length = 0;
+            transientTimeData.length = 0;
+            currentData.length = 0;
+            gapData.length = 0;
+            conductanceData.length = 0;
+            dGdtData.length = 0;
+
+            if (chartPhaseSpace) chartPhaseSpace.update();
+            if (chartTransient) chartTransient.update();
+            if (chartConductance) chartConductance.update();
+
+            document.getElementById('puffIndicator').classList.add('hidden');
+            document.getElementById('gapDisplay').innerText = '0.0 mm';
+
+            updateStatusBadge(
+                'STANDBY (BUS CLOSED)', 
+                'text-emerald-400', 
+                'bg-emerald-500', 
+                'shield-check', 
+                'border-emerald-500/20'
+            );
+            
+            document.getElementById('observerDiagnostic').innerText = 
+                `System state nominal. Low impedance metal contact. Conductance observer initialized.`;
+        }
+
+        function updateStatusBadge(text, textColorClass, dotColorClass, iconName, borderClass) {
+            const container = document.getElementById('statusBadgeContainer');
+            const iconContainer = document.getElementById('statusIcon');
+            
+            container.innerHTML = `
+                <span class="inline-block w-2.5 h-2.5 rounded-full ${dotColorClass}"></span>
+                <span class="${textColorClass} tracking-wide font-mono">${text}</span>
+            `;
+            
+            iconContainer.className = `w-10 h-10 rounded-lg bg-gray-900 border ${borderClass} flex items-center justify-center ${textColorClass}`;
+            iconContainer.innerHTML = `<i data-lucide="${iconName}" class="w-5 h-5"></i>`;
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 4. Physics Simulation Engine Step
+        // ==========================================
+        function physicsStep(dtMs) {
+            if (!state.isFaultActive) return;
+
+            state.simTimeMs += dtMs;
+            const dtSec = dtMs / 1000.0;
+
+            // 1. Advance Chopper Piston (Driven by pyro combustion velocity)
+            if (state.pistonPosMm < state.maxGapMm) {
+                state.pistonPosMm += (state.chopperVelocity * dtSec * 1000.0);
+                if (state.pistonPosMm > state.maxGapMm) state.pistonPosMm = state.maxGapMm;
+            }
+
+            // 2. Arc Dynamic Conductance & Current calculation
+            const prevConductance = state.conductanceS;
+
+            if (state.forceFlashover) {
+                // Flashover mode: Plasma maintains conductances regardless of gap
+                state.currentKA = state.maxFaultCurrent * (0.8 + 0.2 * Math.sin(state.simTimeMs * 0.05));
+                state.conductanceS = 180.0 + 30.0 * Math.sin(state.simTimeMs * 0.08);
+                state.arcEnergyJoules += (state.busVoltage * (state.currentKA * 1000) * dtSec);
+                state.dGdt = (state.conductanceS - prevConductance) / dtMs;
+                state.flashoverOccurred = true;
+
+                // Spawn heavy plasma particles
+                for (let i = 0; i < 4; i++) {
+                    state.plasmaParticles.push({
+                        x: 280 + Math.random() * 80,
+                        y: 110 + Math.random() * 60,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6,
+                        radius: 3 + Math.random() * 5,
+                        life: 1.0,
+                        color: Math.random() > 0.3 ? '#ef4444' : '#f59e0b'
+                    });
+                }
+            } else {
+                // Standard mode: Piston chops copper, creating arc column
+                const gapNormalized = Math.max(0.001, state.pistonPosMm / state.maxGapMm);
+                
+                // Gap resistance increases with displacement
+                const arcVoltage = 45.0 + 950.0 * Math.pow(gapNormalized, 1.3);
+
+                if (!state.puffFired) {
+                    // Natural decay governed by cooling and lengthening
+                    const coolingRate = 0.06 * (state.chopperVelocity / 40.0);
+                    state.conductanceS = Math.max(0, state.conductanceS - (state.conductanceS * coolingRate * dtMs) - 0.5);
+                    state.currentKA = Math.max(0, (state.conductanceS * arcVoltage) / 1000.0);
+
+                    // Calculate dG/dt
+                    state.dGdt = (state.conductanceS - prevConductance) / dtMs;
+
+                    // CHECK CLOSED-LOOP TRIGGER:
+                    // If conductance decay arrests (dG/dt drops below threshold while G is still high)
+                    if (state.closedLoopPuffEnabled && state.conductanceS > 15.0 && state.pistonPosMm > 8.0) {
+                        if (state.dGdt > state.dGdtThreshold || state.simTimeMs > 0.6) {
+                            // Fire Auxiliary Dielectric Gas Puff!
+                            state.puffFired = true;
+                            state.puffTimeMs = state.simTimeMs;
+                            document.getElementById('puffIndicator').classList.remove('hidden');
+                            
+                            updateStatusBadge(
+                                'DIELECTRIC PUFF INJECTED', 
+                                'text-cyan-400 font-bold', 
+                                'bg-cyan-400 animate-ping', 
+                                'wind', 
+                                'border-cyan-500/40'
+                            );
+                            
+                            document.getElementById('observerDiagnostic').innerText = 
+                                `CONDUCTANCE DECAY ARREST DETECTED (dG/dt: ${state.dGdt.toFixed(3)} S/ms). High-pressure SF6/N2 injected into blade gap.`;
+                        }
+                    }
+                } else {
+                    // Dielectric Gas Puff is actively extinguishing the plasma
+                    const puffElapsed = state.simTimeMs - state.puffTimeMs;
+                    const quenchFactor = (state.puffPressure / 12.0) * 0.45;
+                    
+                    state.conductanceS = Math.max(0, state.conductanceS - (state.conductanceS * quenchFactor * dtMs) - 5.0);
+                    state.currentKA = Math.max(0, (state.conductanceS * 45.0) / 1000.0);
+                    state.dGdt = (state.conductanceS - prevConductance) / dtMs;
+
+                    // Spawn dielectric jet particles
+                    for (let i = 0; i < 6; i++) {
+                        state.puffParticles.push({
+                            x: 320,
+                            y: 40 + Math.random() * 20,
+                            vx: (Math.random() - 0.5) * 4,
+                            vy: 8 + Math.random() * 10,
+                            radius: 2 + Math.random() * 4,
+                            life: 1.0,
+                            color: '#38bdf8'
+                        });
+                    }
+
+                    if (state.conductanceS <= 0.05 && state.currentKA <= 0.01) {
+                        state.conductanceS = 0.0;
+                        state.currentKA = 0.0;
+                        state.arcExtinguished = true;
+                        state.isFaultActive = false;
+                        
+                        updateStatusBadge(
+                            'ARC QUENCHED - BUS ISOLATED', 
+                            'text-emerald-400', 
+                            'bg-emerald-500', 
+                            'shield-check', 
+                            'border-emerald-500/30'
+                        );
+
+                        document.getElementById('observerDiagnostic').innerText = 
+                            `ISOLATION SUCCESSFUL. Bus cleared in ${state.simTimeMs.toFixed(2)} ms. Dielectric withstand > 50 kV/cm verified across open gap.`;
+                    }
+                }
+
+                // If not closed-loop puff and conductance hasn't died, it may stall
+                if (!state.closedLoopPuffEnabled && !state.puffFired && state.pistonPosMm >= state.maxGapMm) {
+                    if (state.conductanceS > 20.0) {
+                        // Flashover due to failed quenching
+                        state.forceFlashover = true;
+                        injectPlasmaBlowby();
+                    }
+                }
+
+                // Accumulate Joules
+                state.arcEnergyJoules += (arcVoltage * (state.currentKA * 1000) * dtSec);
+            }
+
+            // Spawn visual sparks
+            if (state.currentKA > 0.1) {
+                const count = Math.min(8, Math.floor(state.currentKA));
+                for (let i = 0; i < count; i++) {
+                    state.sparks.push({
+                        x: 280 + (state.pistonPosMm * 2.2),
+                        y: 140 + (Math.random() - 0.5) * 40,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.5) * 12,
+                        life: 1.0,
+                        size: 1 + Math.random() * 2
+                    });
+                }
+            }
+
+            // Update DOM Readouts
+            document.getElementById('metricVoltage').innerHTML = (state.arcExtinguished ? '0.0' : state.busVoltage.toFixed(1)) + ' <span class="text-xs font-normal text-gray-400">V DC</span>';
+            document.getElementById('metricCurrent').innerHTML = state.currentKA.toFixed(2) + ' <span class="text-xs font-normal text-gray-400">kA</span>';
+            document.getElementById('metricConductance').innerHTML = state.conductanceS.toFixed(2) + ' <span class="text-xs font-normal text-gray-400">S</span>';
+            document.getElementById('gapDisplay').innerText = state.pistonPosMm.toFixed(1) + ' mm';
+
+            // Push Data to Charts (Throttled)
+            chartUpdateCounter++;
+            if (chartUpdateCounter % 2 === 0) {
+                recordTelemetry();
+            }
+        }
+
+        // ==========================================
+        // 5. Canvas Physical Renderer
+        // ==========================================
+        function drawHardware(w, h) {
+            ctx.clearRect(0, 0, w, h);
+
+            const scaleX = w / 680;
+            const scaleY = h / 280;
+
+            ctx.save();
+            ctx.scale(scaleX, scaleY);
+
+            // Chamber Outer Shell (Vacuum Container)
+            ctx.fillStyle = '#0a0f1d';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(40, 30, 600, 220, 16);
+            ctx.fill();
+            ctx.stroke();
+
+            // Vacuum port indicators & chamber grid lines
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            for (let x = 60; x < 640; x += 30) {
+                ctx.beginPath();
+                ctx.moveTo(x, 30);
+                ctx.lineTo(x, 250);
+                ctx.stroke();
+            }
+
+            // Left Copper Busbar (Fixed Terminal 1)
+            ctx.fillStyle = '#d97706'; // Copper color
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(60, 125, 200, 30, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Copper Busbar (Fixed Terminal 2)
+            ctx.beginPath();
+            ctx.roundRect(420, 125, 200, 30, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Busbar Mount Ceramic Insulators
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(80, 155, 30, 35);
+            ctx.fillRect(170, 155, 30, 35);
+            ctx.fillRect(470, 155, 30, 35);
+            ctx.fillRect(560, 155, 30, 35);
+
+            // Pyrotechnic Piston Cylinder & Dielectric Puff Nozzle
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.fillRect(295, 35, 90, 45); // Puff chamber
+            ctx.strokeRect(295, 35, 90, 45);
+
+            // Supersonic Nozzle Tip
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.moveTo(330, 80);
+            ctx.lineTo(350, 80);
+            ctx.lineTo(355, 95);
+            ctx.lineTo(325, 95);
+            ctx.closePath();
+            ctx.fill();
+
+            // Piston Cutter Blade (Mechanical Ram moving down and right)
+            const pistonY = 70 + (state.pistonPosMm * 1.5);
+            ctx.fillStyle = '#e2e8f0'; // Hardened Ceramic Chopper
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Wedge blade shape
+            ctx.moveTo(270 + (state.pistonPosMm * 1.8), pistonY);
+            ctx.lineTo(295 + (state.pistonPosMm * 1.8), pistonY + 50);
+            ctx.lineTo(310 + (state.pistonPosMm * 1.8), pistonY + 50);
+            ctx.lineTo(285 + (state.pistonPosMm * 1.8), pistonY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Severed Busbar Fragment (if piston has moved)
+            if (state.pistonPosMm > 5.0) {
+                ctx.fillStyle = '#92400e';
+                ctx.fillRect(260, 125, 20, 30); // Severed edge
+                
+                // Gap Region Marker
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.setLineDash([4, 4]);
+                ctx.strokeRect(260, 115, 160, 50);
+                ctx.setLineDash([]);
+            } else {
+                // Intact continuous busbar segment
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(260, 125, 160, 30);
+            }
+
+            // Draw Active High-Current Arc Column if current > 0
+            if (state.currentKA > 0.05) {
+                ctx.save();
+                const arcIntensity = Math.min(1.0, state.currentKA / 10.0);
+                
+                // Glow effect
+                ctx.shadowColor = state.flashoverOccurred ? '#ef4444' : '#38bdf8';
+                ctx.shadowBlur = 25 * arcIntensity;
+
+                ctx.strokeStyle = state.flashoverOccurred ? 'rgba(239, 68, 68, 0.85)' : 'rgba(56, 189, 248, 0.9)';
+                ctx.lineWidth = 4 + arcIntensity * 8;
+                
+                ctx.beginPath();
+                const startX = 260 + (state.pistonPosMm * 0.4);
+                const endX = 420;
+                ctx.moveTo(startX, 140);
+                
+                // Jagged lightning arc path
+                const segments = 6;
+                for (let i = 1; i < segments; i++) {
+                    const segX = startX + (endX - startX) * (i / segments);
+                    const segY = 140 + (Math.random() - 0.5) * (18 * arcIntensity);
+                    ctx.lineTo(segX, segY);
+                }
+                ctx.lineTo(endX, 140);
+                ctx.stroke();
+
+                // Bright core
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2 + arcIntensity * 2;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Render Auxiliary Gas Puff Jets
+            for (let i = state.puffParticles.length - 1; i >= 0; i--) {
+                const p = state.puffParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.04;
+                p.radius *= 1.02;
+
+                if (p.life <= 0) {
+                    state.puffParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.fillStyle = `rgba(56, 189, 248, ${p.life * 0.7})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Render Plasma Blow-by & Hot Particles
+            for (let i = state.plasmaParticles.length - 1; i >= 0; i--) {
+                const p = state.plasmaParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.03;
+
+                if (p.life <= 0) {
+                    state.plasmaParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+
+            // Render Metal Vapor Sparks
+            for (let i = state.sparks.length - 1; i >= 0; i--) {
+                const s = state.sparks[i];
+                s.x += s.vx;
+                s.y += s.vy;
+                s.vy += 0.4; // gravity
+                s.life -= 0.05;
+
+                if (s.life <= 0) {
+                    state.sparks.splice(i, 1);
+                    continue;
+                }
+
+                ctx.fillStyle = `rgba(251, 191, 36, ${s.life})`;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            }
+
+            // High Voltage Warnings & Labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText('+1000V DC BUSBAR IN', 60, 115);
+            ctx.fillText('LUNAR LOAD OUT', 480, 115);
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 6. Chart.js Graphs Setup & Updates
+        // ==========================================
+        function initCharts() {
+            // Chart 1: Phase Space (Conductance G vs Arc Energy E)
+            const ctxPhase = document.getElementById('chartPhaseSpace').getContext('2d');
+            
+            // Baseline nominal curve points (decay to 0)
+            const nominalBaseline = [];
+            for (let e = 0; e <= 800; e += 50) {
+                // nominal trajectory: G decays fast before high energy accumulates
+                const g = 200 * Math.exp(-e / 120);
+                nominalBaseline.push({ x: e, y: g });
+            }
+
+            // Hazard Boundary line (Above this threshold, arc restrikes)
+            const hazardThreshold = [];
+            for (let e = 0; e <= 1000; e += 100) {
+                hazardThreshold.push({ x: e, y: 75.0 }); // Persistent high G
+            }
+
+            chartPhaseSpace = new Chart(ctxPhase, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Hazard Restrike Boundary',
+                            data: hazardThreshold,
+                            showLine: true,
+                            borderColor: 'rgba(239, 68, 68, 0.6)',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            backgroundColor: 'rgba(239, 68, 68, 0.05)'
+                        },
+                        {
+                            label: 'Nominal Quench Corridor',
+                            data: nominalBaseline,
+                            showLine: true,
+                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Live Dynamic Trajectory',
+                            data: phaseSpaceHistory,
+                            showLine: true,
+                            borderColor: '#06b6d4',
+                            borderWidth: 2.5,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#22d3ee',
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Dissipated Arc Energy E (Joules)', color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 9 } },
+                            min: 0,
+                            max: 1000
+                        },
+                        y: {
+                            title: { display: true, text: 'Plasma Conductance G (Siemens)', color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 9 } },
+                            min: 0,
+                            max: 280
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1', font: { family: 'Inter', size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Transient Current & Piston Gap
+            const ctxTransient = document.getElementById('chartTransient').getContext('2d');
+            chartTransient = new Chart(ctxTransient, {
+                type: 'line',
+                data: {
+                    labels: transientTimeData,
+                    datasets: [
+                        {
+                            label: 'Current i (kA)',
+                            data: currentData,
+                            borderColor: '#f43f5e',
+                            borderWidth: 2,
+                            yAxisID: 'y',
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Gap x (mm)',
+                            data: gapData,
+                            borderColor: '#38bdf8',
+                            borderWidth: 1.5,
+                            borderDash: [3, 3],
+                            yAxisID: 'y1',
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (ms)', color: '#64748b', font: { size: 9 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b', font: { size: 8 } }
+                        },
+                        y: {
+                            position: 'left',
+                            title: { display: true, text: 'Current (kA)', color: '#f43f5e', font: { size: 9 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#f43f5e', font: { size: 8 } },
+                            min: 0
+                        },
+                        y1: {
+                            position: 'right',
+                            title: { display: true, text: 'Gap (mm)', color: '#38bdf8', font: { size: 9 } },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#38bdf8', font: { size: 8 } },
+                            min: 0,
+                            max: 40
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { size: 9 } } }
+                    }
+                }
+            });
+
+            // Chart 3: Conductance & dG/dt Derivative
+            const ctxConductance = document.getElementById('chartConductance').getContext('2d');
+            chartConductance = new Chart(ctxConductance, {
+                type: 'line',
+                data: {
+                    labels: transientTimeData,
+                    datasets: [
+                        {
+                            label: 'Conductance G (S)',
+                            data: conductanceData,
+                            borderColor: '#fbbf24',
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'dG/dt (S/ms)',
+                            data: dGdtData,
+                            borderColor: '#a855f7',
+                            borderWidth: 1.5,
+                            borderDash: [2, 2],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (ms)', color: '#64748b', font: { size: 9 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#64748b', font: { size: 8 } }
+                        },
+                        y: {
+                            title: { display: true, text: 'Conductance / dG/dt', color: '#fbbf24', font: { size: 9 } },
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#94a3b8', font: { size: 8 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        function recordTelemetry() {
+            // Limit array sizes to maintain performance
+            const maxPoints = 50;
+
+            phaseSpaceHistory.push({
+                x: Math.round(state.arcEnergyJoules),
+                y: parseFloat(state.conductanceS.toFixed(2))
+            });
+            if (phaseSpaceHistory.length > maxPoints) phaseSpaceHistory.shift();
+
+            const timeLabel = state.simTimeMs.toFixed(2);
+            transientTimeData.push(timeLabel);
+            currentData.push(parseFloat(state.currentKA.toFixed(2)));
+            gapData.push(parseFloat(state.pistonPosMm.toFixed(1)));
+            conductanceData.push(parseFloat(state.conductanceS.toFixed(1)));
+            dGdtData.push(parseFloat(state.dGdt.toFixed(2)));
+
+            if (transientTimeData.length > maxPoints) {
+                transientTimeData.shift();
+                currentData.shift();
+                gapData.shift();
+                conductanceData.shift();
+                dGdtData.shift();
+            }
+
+            if (chartPhaseSpace) chartPhaseSpace.update();
+            if (chartTransient) chartTransient.update();
+            if (chartConductance) chartConductance.update();
+        }
+
+        // ==========================================
+        // 7. Main Application Animation Loop
+        // ==========================================
+        let lastFrameTime = performance.now();
+
+        function mainLoop(now) {
+            const dtMs = Math.min(33, now - lastFrameTime);
+            lastFrameTime = now;
+
+            // Physics step
+            physicsStep(dtMs);
+
+            // Redraw Canvas
+            const rect = canvas.getBoundingClientRect();
+            drawHardware(rect.width || 600, rect.height || 280);
+
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Initialize on window load
+        window.onload = function() {
+            lucide.createIcons();
+            initCharts();
+            resizeCanvas();
+            updateControls();
+            
+            // Start high-rate physics loop
+            requestAnimationFrame(mainLoop);
+        };
+    </script>
+</body>
+</html>
